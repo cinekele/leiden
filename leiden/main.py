@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import networkx as nx
-import pandas as pd
-import numpy as np
 from copy import deepcopy
 
+import networkx as nx
+import numpy as np
+import pandas as pd
 
 gamma: float = 1 / 7
 theta: float = 0.5
@@ -152,7 +152,9 @@ def merge_nodes_subset(graph: nx.Graph, partition: list, subset: set) -> list:
         if len(community) == 1:
             partition.remove(community)
             v = community.pop()
-            t = [c for c in partition if c.issubset(subset) and len(list(nx.edge_boundary(graph, c, subset.difference(c)))) >= gamma * len(c) * (len(subset) - len(c))]
+            t = [c for c in partition if
+                 c.issubset(subset) and len(list(nx.edge_boundary(graph, c, subset.difference(c)))) >= gamma * len(
+                     c) * (len(subset) - len(c))]
             if len(t) > 0:
                 distribution = [np.exp(delta_cpm(graph, partition, v, c)[0] / theta) for c in t]
                 distribution = [elem if elem >= 0 else 0 for elem in distribution]
@@ -193,17 +195,19 @@ def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None, naive: bool 
     temp_graph = graph.copy()
     while not done:
         partition = move_nodes_fast(temp_graph, partition)
-        done = len(partition) == temp_graph.number_of_nodes() or (naive and len(partition) == 1 and len(partition[0]) == temp_graph.number_of_nodes())
+        done = len(partition) == temp_graph.number_of_nodes() or (
+                    naive and len(partition) == 1 and len(partition[0]) == temp_graph.number_of_nodes())
         if not done:
             partition_refined = refine_partition(temp_graph, partition)
             temp_graph, community_contains = aggregate_graph(temp_graph, partition_refined, community_contains)
-            partition = [{v for v in temp_graph.nodes() if partition_refined[v].issubset(community)} for community in partition]
+            partition = [{v for v in temp_graph.nodes() if partition_refined[v].issubset(community)} for community in
+                         partition]
     return partition, community_contains
 
 
-def leiden_format(graph: nx.Graph | nx.MultiGraph, partition: list = None, filename: str = None) -> pd.DataFrame:
-    partition, community_contains = leiden(graph, partition)
-    formatted =  pd.DataFrame([(node, item[0]+1) for item in community_contains.items() for node in item[1]])
+def leiden_format(community_contains: dict = None, filename: str = None) -> pd.DataFrame:
+    formatted = pd.DataFrame([(node, item[0] + 1) for item in community_contains.items() for node in item[1]])
+    formatted.sort_values(by=[0], inplace=True)
     if filename is not None:
         formatted.to_csv(filename, index=False, header=False)
     return formatted
@@ -213,4 +217,5 @@ if __name__ == '__main__':
     g = nx.complete_graph(8)
     g = nx.union(g, nx.complete_graph(8), ('a-', 'b-'))
     g.add_edge('a-0', 'b-0')
-    print(leiden_format(g, filename="file_name.csv"))
+    partition, community_contains = leiden(g)
+    print(leiden_format(community_contains, filename="../file_name.csv"))
