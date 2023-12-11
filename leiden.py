@@ -86,12 +86,11 @@ def move_nodes_fast(graph: nx.Graph, partition: list) -> list:
         h_new, new_community = maximize_cpm(graph, partition_old, node, current_community)
         if h_new > h_old:
             partition.remove(new_community)
-            for community in partition:
-                if node in community:
-                    community.remove(node)
-                    if len(community) == 0:
-                        partition.remove(community)
-                    break
+            community = [community for community in partition if node in community][0]
+            if len(community) == 1:
+                partition.remove(community)
+            else:
+                community.remove(node)
             updated_community = new_community.union({node})
             partition.append(updated_community)
             neighbors = set(nx.neighbors(graph, node)).difference(new_community)
