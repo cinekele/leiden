@@ -38,7 +38,8 @@ def maximize_cpm(graph: nx.Graph, partition: list, node, current_community: set)
 
     partition.remove(current_community)
     diff_community = current_community.difference({node})
-    partition.append(diff_community)
+    if len(diff_community) > 0:
+        partition.append(diff_community)
 
     for community in partition:
         partition_new = deepcopy(partition)
@@ -49,8 +50,7 @@ def maximize_cpm(graph: nx.Graph, partition: list, node, current_community: set)
         if value > max_value:
             max_value = value
             max_community = community
-    if max_community == diff_community:
-        return -10000, current_community
+
     return max_value, max_community
 
 
@@ -111,7 +111,7 @@ def aggregate_graph(graph: nx.Graph, partition: list) -> nx.MultiGraph:
     graph_new.add_nodes_from([i for i in range(len(partition))])
     for i, community in enumerate(partition):
         for j, other_community in enumerate(partition):
-            if i < j:
+            if i <= j:
                 edges = list(nx.edge_boundary(graph, community, other_community))
                 graph_new.add_edges_from([(i, j)] * len(edges))
     return graph_new
@@ -135,7 +135,7 @@ def merge_nodes_subset(graph: nx.Graph, partition: list, subset: set) -> list:
     :return: Merged partition
     """
 
-    r = {node for node in subset if len(nx.subgraph(graph, subset).edges(node)) >= gamma * (graph.number_of_nodes() - 1)}
+    r = {node for node in subset if len(nx.subgraph(graph, subset).edges(node)) >= gamma * (len(subset) - 1)}
     for node in r:
         community = [community for community in partition if node in community][0]
         if len(community) == 1:
