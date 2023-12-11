@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import networkx as nx
+import pandas as pd
 import numpy as np
 from copy import deepcopy
 
@@ -169,7 +170,7 @@ def refine_partition(graph: nx.Graph, partition: list) -> list:
     return partition_refined
 
 
-def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None) -> (list, dict):
+def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None, naive: bool = True) -> (list, dict):
     """
     Leiden community detection algorithm.
     :param graph: networkx.Graph
@@ -185,7 +186,7 @@ def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None) -> (list, di
     temp_graph = graph.copy()
     while not done:
         partition = move_nodes_fast(temp_graph, partition)
-        done = len(partition) == temp_graph.number_of_nodes()
+        done = len(partition) == temp_graph.number_of_nodes() or (naive and len(partition) == 1 and len(partition[0]) == temp_graph.number_of_nodes())
         if not done:
             partition_refined = refine_partition(temp_graph, partition)
             temp_graph, community_contains = aggregate_graph(temp_graph, partition_refined, community_contains)
@@ -193,8 +194,16 @@ def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None) -> (list, di
     return partition, community_contains
 
 
+def leiden_format(graph: nx.Graph | nx.MultiGraph, partition: list = None, filename: str = None) -> pd.DataFrame:
+    partition, community_contains = leiden(graph, partition)
+    formatted =  pd.DataFrame([(node, item[0]+1) for item in community_contains.items() for node in item[1]])
+    if filename is not None:
+        formatted.to_csv(filename, index=False, header=False)
+    return formatted
+
+
 if __name__ == '__main__':
     g = nx.complete_graph(8)
     g = nx.union(g, nx.complete_graph(8), ('a-', 'b-'))
     g.add_edge('a-0', 'b-0')
-    print(leiden(g))
+    print(leiden_format(g, filename="file_name.csv"))
