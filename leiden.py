@@ -52,6 +52,13 @@ def maximize_cpm(graph: nx.Graph, partition: list, node, current_community: set)
             max_value = value
             max_community = community
 
+    partition_new = deepcopy(partition)
+    partition_new.append({node})
+    value = cpm(graph, partition_new)
+    if value > max_value:
+        max_value = value
+        max_community = {}
+
     return max_value, max_community
 
 
@@ -190,7 +197,7 @@ def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None, naive: bool 
         if not done:
             partition_refined = refine_partition(temp_graph, partition)
             temp_graph, community_contains = aggregate_graph(temp_graph, partition_refined, community_contains)
-            partition = single_partition(temp_graph)
+            partition = [{v for v in temp_graph.nodes() if partition_refined[v].issubset(community)} for community in partition]
     return partition, community_contains
 
 
