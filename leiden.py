@@ -99,21 +99,25 @@ def move_nodes_fast(graph: nx.Graph, partition: list) -> list:
     return partition
 
 
-def aggregate_graph(graph: nx.Graph, partition: list) -> nx.MultiGraph:
+def aggregate_graph(graph: nx.Graph, partition: list, community_contains: dict) -> (nx.MultiGraph, dict):
     """
     Aggregate graph.
     :param graph: Graph
     :param partition: Partition
+    :param community_contains: Community contains
     :return: MultiGraph
     """
     graph_new = nx.MultiGraph()
     graph_new.add_nodes_from([i for i in range(len(partition))])
+    community_contains_new = {i: [] for i in range(len(partition))}
     for i, community in enumerate(partition):
         for j, other_community in enumerate(partition):
             if i <= j:
                 edges = list(nx.edge_boundary(graph, community, other_community))
                 graph_new.add_edges_from([(i, j)] * len(edges))
-    return graph_new
+        for node in community:
+            community_contains_new[i].extend(community_contains[node])
+    return graph_new, community_contains_new
 
 
 def single_partition(graph: nx.Graph) -> list:
@@ -165,7 +169,7 @@ def refine_partition(graph: nx.Graph, partition: list) -> list:
     return partition_refined
 
 
-def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None) -> list:
+def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None) -> (list, dict):
     """
     Leiden community detection algorithm.
     :param graph: networkx.Graph
@@ -176,6 +180,7 @@ def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None) -> list:
         graph = nx.MultiGraph(graph)
     if partition is None:
         partition = single_partition(graph)
+    community_contains = {node: [node] for node in graph.nodes()}
     done = False
     temp_graph = graph.copy()
     while not done:
@@ -183,9 +188,9 @@ def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None) -> list:
         done = len(partition) == temp_graph.number_of_nodes()
         if not done:
             partition_refined = refine_partition(temp_graph, partition)
-            temp_graph = aggregate_graph(temp_graph, partition_refined)
+            temp_graph, community_contains = aggregate_graph(temp_graph, partition_refined, community_contains)
             partition = single_partition(temp_graph)
-    return partition
+    return partition, community_contains
 
 
 if __name__ == '__main__':
