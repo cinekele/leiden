@@ -44,8 +44,7 @@ def maximize_cpm(graph: nx.Graph, partition: list, node, current_community: set)
         partition_new = deepcopy(partition)
         community_new = community.copy()
         partition_new.remove(community_new)
-        community_new.union({node})
-        partition_new.append(community_new)
+        partition_new.append(community_new.union({node}))
         value = cpm(graph, partition_new)
         if value > max_value:
             max_value = value
