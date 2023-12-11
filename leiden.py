@@ -86,12 +86,11 @@ def move_nodes_fast(graph: nx.Graph, partition: list) -> list:
         h_new, new_community = maximize_cpm(graph, partition_old, node, current_community)
         if h_new > h_old:
             partition.remove(new_community)
-            for community in partition:
-                if node in community:
-                    community.remove(node)
-                    if len(community) == 0:
-                        partition.remove(community)
-                    break
+            community = [community for community in partition if node in community][0]
+            if len(community) == 1:
+                partition.remove(community)
+            else:
+                community.remove(node)
             updated_community = new_community.union({node})
             partition.append(updated_community)
             neighbors = set(nx.neighbors(graph, node)).difference(new_community)
@@ -123,15 +122,16 @@ def single_partition(graph: nx.Graph) -> list:
     :param graph: Graph
     :return: Single partition (set of singletons)
     """
-    return [{elem} for elem in nx.nodes(graph)]
+    return [{elem} for i, elem in enumerate(nx.nodes(graph))]
 
 
-def merge_nodes_subset(graph: nx.Graph, partition: list, subset: set) -> list:
+def merge_nodes_subset(graph: nx.Graph, partition: list, subset: set, community_contains: dict) -> (list, dict):
     """
     Merge nodes in a subset.
     :param graph: Graph
     :param partition: Partition
     :param subset: Subset of nodes
+    :param community_contains: Community contains
     :return: Merged partition
     """
 
@@ -140,6 +140,7 @@ def merge_nodes_subset(graph: nx.Graph, partition: list, subset: set) -> list:
         community = [community for community in partition if node in community][0]
         if len(community) == 1:
             partition.remove(community)
+            # community_contains.pop()
             v = community.pop()
             t = [c for c in partition if c.issubset(subset) and len(list(nx.edge_boundary(graph, c, subset.difference(c)))) >= gamma * len(c) * (len(subset) - len(c))]
             if len(t) > 0:
@@ -150,20 +151,21 @@ def merge_nodes_subset(graph: nx.Graph, partition: list, subset: set) -> list:
                 partition.remove(community)
                 community = community.union({node})
                 partition.append(community)
-    return partition
+    return partition, community_contains
 
 
-def refine_partition(graph: nx.Graph, partition: list) -> list:
+def refine_partition(graph: nx.Graph, partition: list, community_contains: dict) -> (list, dict):
     """
     Refine partition.
     :param graph: graph
     :param partition: partition
+    :param community_contains: community contains
     :return: refined partition
     """
     partition_refined = single_partition(graph)
     for community in partition:
-        partition_refined = merge_nodes_subset(graph, partition_refined, community)
-    return partition_refined
+        partition_refined, community_contains = merge_nodes_subset(graph, partition_refined, community, community_contains)
+    return partition_refined, community_contains
 
 
 def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None) -> list:
@@ -177,13 +179,14 @@ def leiden(graph: nx.Graph | nx.MultiGraph, partition: list = None) -> list:
         graph = nx.MultiGraph(graph)
     if partition is None:
         partition = single_partition(graph)
+    community_contains = {i: [community] for i, community in enumerate(partition)}
     done = False
     temp_graph = graph.copy()
     while not done:
         partition = move_nodes_fast(temp_graph, partition)
         done = len(partition) == temp_graph.number_of_nodes()
         if not done:
-            partition_refined = refine_partition(temp_graph, partition)
+            partition_refined, community_contains = refine_partition(temp_graph, partition, community_contains)
             temp_graph = aggregate_graph(temp_graph, partition_refined)
             partition = single_partition(temp_graph)
     return partition
